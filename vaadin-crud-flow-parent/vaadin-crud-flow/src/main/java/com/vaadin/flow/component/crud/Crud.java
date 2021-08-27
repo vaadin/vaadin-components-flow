@@ -90,7 +90,6 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
     private CrudEditor<E> editor;
     private E gridActiveItem;
 
-
     final private Button save;
 
     final private Button cancel;
@@ -176,7 +175,7 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
     public Crud() {
         setI18n(CrudI18n.createDefault(), false);
         registerHandlers();
-        
+
         save = new Button();
         save.getElement().setAttribute("slot", "save-button");
         save.addThemeName("primary");
@@ -192,21 +191,21 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
         delete.addThemeNames("tertiary", "error");
         getElement().appendChild(delete.getElement());
 
-        
         addAttachListener(e -> {
             getElement()
-                .executeJs("this.__validate = function () {return true;}");
-            // Override onFormChanges to dispatch an event so the server can control
+                    .executeJs("this.__validate = function () {return true;}");
+            // Override onFormChanges to dispatch an event so the server can
+            // control
             // the dirty state of the form
-            getElement()
-                .executeJs("this.__onFormChanges = function () { this.dispatchEvent(new CustomEvent('form-change')); }");
+            getElement().executeJs(
+                    "this.__onFormChanges = function () { this.dispatchEvent(new CustomEvent('form-change')); }");
         });
 
         getElement().addEventListener("form-change", this::formChangeEvent);
     }
 
     private void formChangeEvent(com.vaadin.flow.dom.DomEvent e) {
-        if(this.save.isEnabled()) {
+        if (this.save.isEnabled()) {
             this.setDirty(true);
         }
     }
@@ -572,13 +571,16 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
 
     /**
      * Gets the Crud editor delete button
+     * 
      * @return the delete button
      */
     public Button getDeleteButton() {
         return delete;
     }
+
     /**
      * Gets the Crud save button
+     * 
      * @return the save button
      */
     public Button getSaveButton() {
@@ -587,11 +589,12 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
 
     /**
      * Gets the Crud cancel button
+     * 
      * @return the cancel button
      */
     public Button getCancelButton() {
         return cancel;
-    }   
+    }
 
     /**
      * Adds theme variants to the component.
