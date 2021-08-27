@@ -28,6 +28,7 @@ import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.dependency.NpmPackage;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.data.provider.DataProvider;
 import com.vaadin.flow.data.renderer.TemplateRenderer;
 import com.vaadin.flow.dom.Element;
@@ -88,6 +89,13 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
     private Grid<E> grid;
     private CrudEditor<E> editor;
     private E gridActiveItem;
+
+
+    final private Button save;
+
+    final private Button cancel;
+
+    final private Button delete;
 
     /**
      * Instantiates a new Crud using a custom grid.
@@ -168,8 +176,39 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
     public Crud() {
         setI18n(CrudI18n.createDefault(), false);
         registerHandlers();
-        addAttachListener(e -> getElement()
-                .executeJs("this.__validate = function () {return true;}"));
+        
+        save = new Button();
+        save.getElement().setAttribute("slot", "save-button");
+        save.addThemeName("primary");
+        getElement().appendChild(save.getElement());
+
+        cancel = new Button();
+        cancel.getElement().setAttribute("slot", "cancel-button");
+        cancel.addThemeName("tertiary");
+        getElement().appendChild(cancel.getElement());
+
+        delete = new Button();
+        delete.getElement().setAttribute("slot", "delete-button");
+        delete.addThemeNames("tertiary", "error");
+        getElement().appendChild(delete.getElement());
+
+        
+        addAttachListener(e -> {
+            getElement()
+                .executeJs("this.__validate = function () {return true;}");
+            // Override onFormChanges to dispatch an event so the server can control
+            // the dirty state of the form
+            getElement()
+                .executeJs("this.__onFormChanges = function () { this.dispatchEvent(new CustomEvent('form-change')); }");
+        });
+
+        getElement().addEventListener("form-change", this::formChangeEvent);
+    }
+
+    private void formChangeEvent(com.vaadin.flow.dom.DomEvent e) {
+        if(this.save.isEnabled()) {
+            this.setDirty(true);
+        }
     }
 
     private void registerHandlers() {
@@ -530,6 +569,29 @@ public class Crud<E> extends Component implements HasSize, HasTheme {
                     new CrudI18nUpdatedEvent(this, false, i18n));
         }
     }
+
+    /**
+     * Gets the Crud editor delete button
+     * @return the delete button
+     */
+    public Button getDeleteButton() {
+        return delete;
+    }
+    /**
+     * Gets the Crud save button
+     * @return the save button
+     */
+    public Button getSaveButton() {
+        return save;
+    }
+
+    /**
+     * Gets the Crud cancel button
+     * @return the cancel button
+     */
+    public Button getCancelButton() {
+        return cancel;
+    }   
 
     /**
      * Adds theme variants to the component.
