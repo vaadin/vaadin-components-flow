@@ -643,7 +643,8 @@ public class Spreadsheet extends Component
     void onPopupButtonClick(int row, int column) {
         PopupButton popup = sheetPopupButtons
                 .get(SpreadsheetUtil.relativeToAbsolute(this,
-                        new CellReference(row - 1, column - 1)));
+                        new CellReference(getActiveSheet().getSheetName(),
+                                row - 1, column - 1, false, false)));
         if (popup != null) {
             popup.openPopup();
         }
@@ -652,7 +653,8 @@ public class Spreadsheet extends Component
     void onPopupClose(int row, int column) {
         PopupButton popup = sheetPopupButtons
                 .get(SpreadsheetUtil.relativeToAbsolute(this,
-                        new CellReference(row - 1, column - 1)));
+                        new CellReference(getActiveSheet().getSheetName(),
+                                row - 1, column - 1, false, false)));
 
         if (popup != null) {
             popup.closePopup();
@@ -2922,7 +2924,8 @@ public class Spreadsheet extends Component
                 } else if (numberOfRowsAboveWasChanged(row, last, first)) {
                     int newRow = cell.getRow() + n;
                     int col = cell.getCol();
-                    CellReference newCell = new CellReference(newRow, col, true,
+                    CellReference newCell = new CellReference(
+                            getActiveSheet().getSheetName(), newRow, col, true,
                             true);
                     pbutton.setCellReference(newCell);
                     updated.put(newCell, pbutton);
@@ -4760,7 +4763,8 @@ public class Spreadsheet extends Component
      *            removes the pop-up button for the target cell.
      */
     public void setPopup(int row, int col, PopupButton popupButton) {
-        setPopup(new CellReference(row, col), popupButton);
+        setPopup(new CellReference(getActiveSheet().getSheetName(), row, col,
+                false, false), popupButton);
     }
 
     /**
@@ -5184,7 +5188,9 @@ public class Spreadsheet extends Component
 
                 for (int x = a.getFirstColumn(); x <= a.getLastColumn(); x++) {
                     for (int y = a.getFirstRow(); y <= a.getLastRow(); y++) {
-                        cells.add(new CellReference(y, x));
+                        cells.add(new CellReference(
+                                selectedCellReference.getSheetName(), y, x,
+                                false, false));
                     }
                 }
             }
