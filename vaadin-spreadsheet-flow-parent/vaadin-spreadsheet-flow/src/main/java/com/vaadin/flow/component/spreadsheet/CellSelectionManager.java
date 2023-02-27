@@ -255,7 +255,11 @@ public class CellSelectionManager implements Serializable {
                                     cellReference.getCol() + 1,
                                     cellReference.getRow() + 1,
                                     cellReference.getCol() + 1);
-                    selectedCellReference = cellReference;
+                    final CellReference cellReferenceWithSheetName = new CellReference(
+                            spreadsheet.getActiveSheet().getSheetName(),
+                            cellReference.getRow(), cellReference.getCol(),
+                            false, false);
+                    selectedCellReference = cellReferenceWithSheetName;
                     cellRangeAddresses.clear();
                 }
             }
@@ -399,7 +403,12 @@ public class CellSelectionManager implements Serializable {
     protected void handleCellRangeSelection(CellReference startingPoint,
             CellRangeAddress cellsToSelect, boolean scroll) {
 
-        handleCellRangeSelection(null, startingPoint, cellsToSelect, scroll);
+        final CellReference startingPointWithSheetName = new CellReference(
+                spreadsheet.getActiveSheet().getSheetName(),
+                startingPoint.getRow(), startingPoint.getCol(), false, false);
+
+        handleCellRangeSelection(null, startingPointWithSheetName,
+                cellsToSelect, scroll);
     }
 
     private void handleCellRangeSelection(String name,
