@@ -55,6 +55,8 @@ public abstract class AbstractNumberField<C extends AbstractNumberField<C, T>, T
     private boolean stepSetByUser;
     private boolean minSetByUser;
 
+    private boolean manualValidationEnabled = false;
+
     /**
      * Sets up the common logic for number fields.
      *
@@ -138,11 +140,19 @@ public abstract class AbstractNumberField<C extends AbstractNumberField<C, T>, T
 
         super.setValue(value);
 
+        // Clear the input element from possible bad input.
         if (Objects.equals(oldValue, getEmptyValue())
                 && Objects.equals(value, getEmptyValue())
                 && isInputValuePresent()) {
-            // Clear the input element from possible bad input.
-            getElement().executeJs("this.inputElement.value = ''");
+            // The check for value presence guarantees that a non-empty value
+            // won't get cleared when setValue(null) and setValue(...) are
+            // subsequently called within one round-trip.
+            // Flow only sends the final component value to the client
+            // when you update the value multiple times during a round-trip
+            // and the final value is sent in place of the first one, so
+            // `executeJs` can end up invoked after a non-empty value is set.
+            getElement()
+                    .executeJs("if (!this.value) this._inputElementValue = ''");
             getElement().setProperty("_hasInputValue", false);
             fireEvent(new ClientValidatedEvent(this, false));
         }
@@ -268,19 +278,26 @@ public abstract class AbstractNumberField<C extends AbstractNumberField<C, T>, T
         return ValidationResult.ok();
     }
 
+    @Override
+    public void setManualValidation(boolean enabled) {
+        this.manualValidationEnabled = enabled;
+    }
+
     /**
      * Performs server-side validation of the current value. This is needed
      * because it is possible to circumvent the client-side validation
      * constraints using browser development tools.
      */
     protected void validate() {
-        T value = getValue();
+        if (!this.manualValidationEnabled) {
+            T value = getValue();
 
-        final var requiredValidation = ValidationUtil.checkRequired(required,
-                value, getEmptyValue());
+            final var requiredValidation = ValidationUtil
+                    .checkRequired(required, value, getEmptyValue());
 
-        setInvalid(
-                requiredValidation.isError() || checkValidity(value).isError());
+            setInvalid(requiredValidation.isError()
+                    || checkValidity(value).isError());
+        }
     }
 
     private boolean isValidByStep(T value) {

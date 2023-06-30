@@ -15,8 +15,11 @@
  */
 package com.vaadin.flow.component.textfield.tests;
 
+import com.vaadin.flow.component.AbstractField;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.shared.HasAllowedCharPattern;
 import com.vaadin.flow.component.shared.HasTooltip;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.dom.ThemeList;
@@ -126,5 +129,42 @@ public class TextFieldTest {
     public void implementsHasTooltip() {
         TextField field = new TextField();
         Assert.assertTrue(field instanceof HasTooltip);
+    }
+
+    @Test
+    public void implementHasAriaLabel() {
+        TextField field = new TextField();
+        Assert.assertTrue(field instanceof HasAriaLabel);
+    }
+
+    @Test
+    public void setAriaLabel() {
+        TextField field = new TextField();
+
+        field.setAriaLabel("aria-label");
+        Assert.assertTrue(field.getAriaLabel().isPresent());
+        Assert.assertEquals("aria-label", field.getAriaLabel().get());
+
+        field.setAriaLabel(null);
+        Assert.assertTrue(field.getAriaLabel().isEmpty());
+    }
+
+    @Test
+    public void setAriaLabelledBy() {
+        TextField field = new TextField();
+
+        field.setAriaLabelledBy("aria-labelledby");
+        Assert.assertTrue(field.getAriaLabelledBy().isPresent());
+        Assert.assertEquals("aria-labelledby", field.getAriaLabelledBy().get());
+
+        field.setAriaLabelledBy(null);
+        Assert.assertTrue(field.getAriaLabelledBy().isEmpty());
+    }
+
+    @Test
+    public void implementsInputField() {
+        TextField field = new TextField();
+        Assert.assertTrue(
+                field instanceof InputField<AbstractField.ComponentValueChangeEvent<TextField, String>, String>);
     }
 }

@@ -205,10 +205,10 @@ import org.slf4j.LoggerFactory;
  *
  */
 @Tag("vaadin-grid")
-@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.2.0-alpha2")
 @JsModule("@vaadin/polymer-legacy-adapter/style-modules.js")
-@NpmPackage(value = "@vaadin/grid", version = "24.0.0-rc1")
-@NpmPackage(value = "@vaadin/tooltip", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/grid", version = "24.2.0-alpha2")
+@NpmPackage(value = "@vaadin/tooltip", version = "24.2.0-alpha2")
 @JsModule("@vaadin/grid/src/vaadin-grid.js")
 @JsModule("@vaadin/grid/src/vaadin-grid-column.js")
 @JsModule("@vaadin/grid/src/vaadin-grid-sorter.js")
@@ -433,7 +433,7 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
      *            type of the underlying grid this column is compatible with
      */
     @Tag("vaadin-grid-column")
-    @NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.0.0-rc1")
+    @NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.2.0-alpha2")
     @JsModule("@vaadin/polymer-legacy-adapter/style-modules.js")
     public static class Column<T> extends AbstractColumn<Column<T>> {
 
@@ -525,6 +525,48 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
          */
         public Renderer<T> getRenderer() {
             return renderer;
+        }
+
+        /**
+         * Set the renderer for this column.
+         *
+         * @param renderer
+         *            the new renderer to be used for this column, must not be
+         *            {@code null}
+         *
+         * @since 24.1
+         */
+        public Column<T> setRenderer(Renderer<T> renderer) {
+            this.renderer = Objects.requireNonNull(renderer,
+                    "Renderer must not be null.");
+
+            destroyDataGenerators();
+            if (rendering != null) {
+                rendering.getRegistration().remove();
+            }
+
+            rendering = renderer.render(getElement(), (KeyMapper<T>) getGrid()
+                    .getDataCommunicator().getKeyMapper());
+
+            columnDataGeneratorRegistration = rendering.getDataGenerator()
+                    .map(dataGenerator -> grid
+                            .addDataGenerator((DataGenerator) dataGenerator))
+                    .orElse(null);
+
+            // The editor renderer is a wrapper around the regular renderer, so
+            // we need to apply it again afterwards
+            if (editorRenderer != null) {
+                Rendering<T> editorRendering = editorRenderer
+                        .render(getElement(), null);
+                editorDataGeneratorRegistration = editorRendering
+                        .getDataGenerator()
+                        .map(dataGenerator -> grid.addDataGenerator(
+                                (DataGenerator) dataGenerator))
+                        .orElse(null);
+            }
+
+            getGrid().getDataCommunicator().reset();
+            return this;
         }
 
         /**
@@ -1055,24 +1097,10 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
          */
         public Column<T> setTooltipGenerator(
                 SerializableFunction<T, String> tooltipGenerator) {
-            Objects.requireNonNull(tooltipGenerator,
+            this.tooltipGenerator = Objects.requireNonNull(tooltipGenerator,
                     "Tooltip generator can not be null");
 
-            if (!getGrid().getElement().getChildren().anyMatch(
-                    child -> "tooltip".equals(child.getAttribute("slot")))) {
-                // No <vaadin-tooltip> yet added to the grid, add one
-                Element tooltipElement = new Element("vaadin-tooltip");
-
-                tooltipElement.addAttachListener(e -> {
-                    // Assigns a generator that returns a column-specific
-                    // tooltip text from the item
-                    tooltipElement.executeJs(
-                            "this.generator = ({item, column}) => { return (item && item.gridtooltips && column) ? item.gridtooltips[column._flowId] : ''; }");
-                });
-                SlotUtils.addToSlot(getGrid(), "tooltip", tooltipElement);
-            }
-
-            this.tooltipGenerator = tooltipGenerator;
+            grid.addTooltipElementToTooltipSlot();
             getGrid().getDataCommunicator().reset();
             return this;
         }
@@ -1383,11 +1411,74 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
 
     private Registration dataProviderChangeRegistration;
 
+    private SerializableFunction<T, String> tooltipGenerator = item -> null;
+
     /**
      * Creates a new instance, with page size of 50.
      */
     public Grid() {
         this(50);
+    }
+
+    /**
+     * Creates a new grid using the given generic {@link DataProvider}.
+     *
+     * @param dataProvider
+     *            the data provider, not {@code null}
+     *
+     */
+    public Grid(DataProvider<T, Void> dataProvider) {
+        this();
+        setItems(dataProvider);
+    }
+
+    /**
+     * Creates a new grid using the given {@link BackEndDataProvider}.
+     *
+     * @param dataProvider
+     *            the data provider, not {@code null}
+     *
+     */
+    public Grid(BackEndDataProvider<T, Void> dataProvider) {
+        this();
+        setItems(dataProvider);
+    }
+
+    /**
+     * Creates a new grid using the given {@link InMemoryDataProvider}.
+     *
+     * @param inMemoryDataProvider
+     *            the data provider, not {@code null}
+     *
+     */
+    public Grid(InMemoryDataProvider<T> inMemoryDataProvider) {
+        this();
+        setItems(inMemoryDataProvider);
+    }
+
+    /**
+     * Creates a new grid using the given {@link ListDataProvider}.
+     *
+     * @param dataProvider
+     *            the data provider, not {@code null}
+     *
+     */
+    public Grid(ListDataProvider<T> dataProvider) {
+        this();
+        setItems(dataProvider);
+    }
+
+    /**
+     * Creates a new grid using the given collection of items using a
+     * {@link ListDataProvider}.
+     *
+     * @param items
+     *            the collection of items, not {@code null}
+     *
+     */
+    public Grid(Collection<T> items) {
+        this();
+        setItems(items);
     }
 
     /**
@@ -2410,14 +2501,14 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
     }
 
     /**
-     * {@inheritDoc}
+     * Sets a generic data provider for the Grid to use.
+     * <p>
+     * Use this method when none of the {@code setItems} methods are applicable,
+     * e.g. when having a data provider with filter that cannot be transformed
+     * to {@code DataProvider<T, Void>}.
      *
-     * Use this method only when having a data provider with filter that cannot
-     * be transformed to {@code DataProvider<T, Void>}.
-     *
-     * @deprecated use instead one of the {@code setItems} methods which provide
-     *             access to either {@link GridListDataView} or
-     *             {@link GridLazyDataView}
+     * @param dataProvider
+     *            DataProvider instance to use, not <code>null</code>
      */
     public void setDataProvider(DataProvider<T, ?> dataProvider) {
         Objects.requireNonNull(dataProvider, "data provider cannot be null");
@@ -3837,8 +3928,13 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
     private void generateTooltipTextData(T item, JsonObject jsonObject) {
         JsonObject tooltips = Json.createObject();
 
+        String rowTooltip = tooltipGenerator.apply(item);
+        if (rowTooltip != null) {
+            tooltips.put("row", rowTooltip);
+        }
+
         idToColumnMap.forEach((id, column) -> {
-            String cellTooltip = column.getTooltipGenerator().apply(item);
+            String cellTooltip = column.tooltipGenerator.apply(item);
             if (cellTooltip != null) {
                 tooltips.put(id, cellTooltip);
             }
@@ -4251,6 +4347,44 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
     }
 
     /**
+     * Sets the function that is used for generating tooltip text for all cells
+     * in this grid. Tooltip generators set to individual columns have priority
+     * over the generator set with this method. Returning {@code null} from the
+     * generator results in no tooltip being set.
+     *
+     * @param tooltipGenerator
+     *            the tooltip generator to set, not {@code null}
+     * @throws NullPointerException
+     *             if {@code tooltipGenerator} is {@code null}
+     *
+     * @since 24.1
+     */
+    public void setTooltipGenerator(
+            SerializableFunction<T, String> tooltipGenerator) {
+        this.tooltipGenerator = Objects.requireNonNull(tooltipGenerator,
+                "Tooltip generator cannot be null");
+        addTooltipElementToTooltipSlot();
+        this.dataCommunicator.reset();
+    }
+
+    private void addTooltipElementToTooltipSlot() {
+        if (this.getElement().getChildren().anyMatch(child -> Objects
+                .equals(child.getAttribute("slot"), "tooltip"))) {
+            // the grid's tooltip slot has already been filled
+            return;
+        }
+        // No <vaadin-tooltip> yet added to the grid, add one
+        Element tooltipElement = new Element("vaadin-tooltip");
+
+        tooltipElement.addAttachListener(e ->
+        // Assigns a generator that returns a column-specific
+        // tooltip text from the item
+        tooltipElement.executeJs(
+                "this.generator = ({item, column}) => { return (item && item.gridtooltips && column) ? item.gridtooltips[column._flowId] ?? item.gridtooltips['row'] : ''; }"));
+        SlotUtils.addToSlot(this, "tooltip", tooltipElement);
+    }
+
+    /**
      * Sets explicit drag operation details for when the user is dragging the
      * selected items. By default, the drag data only covers the items in the
      * visible viewport and all the items outside of it, even if selected, are
@@ -4375,6 +4509,9 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
      *            zero based index of the item to scroll to in the current view.
      */
     public void scrollToIndex(int rowIndex) {
+        // Preload the items for the given index
+        setRequestedRange(rowIndex, getPageSize());
+
         getElement().callJsFunction("scrollToIndex", rowIndex);
     }
 
@@ -4425,6 +4562,73 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
      */
     public NestedNullBehavior getNestedNullBehavior() {
         return nestedNullBehavior;
+    }
+
+    /**
+     * Sets the mode for rendering columns in the grid.
+     *
+     * <p>
+     * <b>eager</b> (default): All columns are rendered upfront, regardless of
+     * their visibility within the viewport. This mode should generally be
+     * preferred, as it avoids the limitations imposed by the "lazy" mode. Use
+     * this mode unless the grid has a large number of columns and performance
+     * outweighs the limitations in priority.
+     * </p>
+     * <p>
+     * <b>lazy</b>: Optimizes the rendering of cells when there are multiple
+     * columns in the grid by virtualizing horizontal scrolling. In this mode,
+     * body cells are rendered only when their corresponding columns are inside
+     * the visible viewport.
+     * </p>
+     * <p>
+     * Using "lazy" rendering should be used only if you're dealing with a large
+     * number of columns and performance is your highest priority. For most use
+     * cases, the default "eager" mode is recommended due to the limitations
+     * imposed by the "lazy" mode.
+     * </p>
+     * <p>
+     * When using the "lazy" mode, keep the following limitations in mind:
+     * </p>
+     * <ul>
+     * <li>Row Height: When only a number of columns are visible at once, the
+     * height of a row can only be that of the highest cell currently visible on
+     * that row. Make sure each cell on a single row has the same height as all
+     * other cells on that row. If row cells have different heights, users may
+     * experience jumpiness when scrolling the grid horizontally as lazily
+     * rendered cells with different heights are scrolled into view.</li>
+     * <li>Auto-width Columns: For the columns that are initially outside the
+     * visible viewport but still use auto-width, only the header content is
+     * taken into account when calculating the column width because the body
+     * cells of the columns outside the viewport are not initially
+     * rendered.</li>
+     * <li>Screen Reader Compatibility: Screen readers may not be able to
+     * associate the focused cells with the correct headers when only a subset
+     * of the body cells on a row is rendered.</li>
+     * <li>Keyboard Navigation: Tabbing through focusable elements inside the
+     * grid body may not work as expected because some of the columns that would
+     * include focusable elements in the body cells may be outside the visible
+     * viewport and thus not rendered.</li>
+     * </ul>
+     *
+     * @param columnRendering
+     *            the column rendering mode to use
+     * @see ColumnRendering
+     */
+    public void setColumnRendering(ColumnRendering columnRendering) {
+        getElement().setProperty("columnRendering",
+                columnRendering == null
+                        ? ColumnRendering.EAGER.getPropertyValue()
+                        : columnRendering.getPropertyValue());
+    }
+
+    /**
+     * Gets the current column rendering mode.
+     *
+     * @return the current column rendering mode
+     */
+    public ColumnRendering getColumnRendering() {
+        return ColumnRendering
+                .fromPropertyValue(getElement().getProperty("columnRendering"));
     }
 
     private void onInMemoryFilterOrSortingChange(

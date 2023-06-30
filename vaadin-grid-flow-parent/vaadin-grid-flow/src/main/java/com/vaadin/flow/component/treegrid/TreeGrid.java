@@ -133,11 +133,11 @@ public class TreeGrid<T> extends Grid<T>
     }
 
     private class TreeGridArrayUpdaterImpl implements TreeGridArrayUpdater {
+        // Approximated size of the viewport. Used for eager fetching.
+        private static final int EAGER_FETCH_VIEWPORT_SIZE_ESTIMATE = 40;
+
         private UpdateQueueData data;
         private SerializableBiFunction<UpdateQueueData, Integer, UpdateQueue> updateQueueFactory;
-
-        // Approximated size of the viewport. Used for eager fetching.
-        private final int EAGER_FETCH_VIEWPORT_SIZE_ESTIMATE = 40;
         private int viewportRemaining = 0;
         private final List<JsonValue> queuedParents = new ArrayList<>();
         private VaadinRequest previousRequest;
@@ -224,6 +224,20 @@ public class TreeGrid<T> extends Grid<T>
         setUniqueKeyProperty("key");
         getArrayUpdater().getUpdateQueueData()
                 .setHasExpandedItems(getDataCommunicator()::hasExpandedItems);
+
+        addItemHasChildrenPathGenerator();
+    }
+
+    /**
+     * Adds a data generator that produces a value for the <vaadin-grid>'s
+     * itemHasChildrenPath property
+     */
+    private void addItemHasChildrenPathGenerator() {
+        addDataGenerator((T item, JsonObject jsonObject) -> {
+            if (getDataCommunicator().hasChildren(item)) {
+                jsonObject.put("children", true);
+            }
+        });
     }
 
     /**
@@ -243,6 +257,8 @@ public class TreeGrid<T> extends Grid<T>
         setUniqueKeyProperty("key");
         getArrayUpdater().getUpdateQueueData()
                 .setHasExpandedItems(getDataCommunicator()::hasExpandedItems);
+
+        addItemHasChildrenPathGenerator();
     }
 
     @Override
@@ -1026,18 +1042,57 @@ public class TreeGrid<T> extends Grid<T>
     }
 
     /**
-     * The effective index of an item depends on the complete hierarchy of the
-     * tree. {@link TreeGrid} uses lazy loading for performance reasons and does
-     * not know about the complete hierarchy. Without the knowledge of the
-     * complete hierarchy, {@link TreeGrid} can’t reliably calculate an exact
-     * scroll position. <b>This uncertainty makes this method unreliable and so
-     * should be avoided.</b>
+     * Scrolls to the index of an item in the root level of the tree. To scroll
+     * to a nested item, use {@link #scrollToIndex(int...)}.
+     * <p>
+     * Scrolls so that the row is shown at the start of the visible area
+     * whenever possible.
+     * <p>
+     * If the index parameter exceeds current item set size the grid will scroll
+     * to the end.
      *
      * @param rowIndex
-     *            zero based index of the item to scroll to in the current view.
+     *            zero based index of the item in the root level of the tree
+     * @see TreeGrid#scrollToIndex(int...)
      */
     @Override
     public void scrollToIndex(int rowIndex) {
         super.scrollToIndex(rowIndex);
+    }
+
+    /**
+     * Scrolls to a nested item within the tree.
+     * <p>
+     * The `indexes` parameter can be either a single number or multiple
+     * numbers. The grid will first try to scroll to the item at the first index
+     * in the root level of the tree. In case the item at the first index is
+     * expanded, the grid will then try scroll to the item at the second index
+     * within the children of the expanded first item, and so on. Each given
+     * index points to a child of the item at the previous index.
+     *
+     * @param indexes
+     *            zero based row indexes to scroll to
+     * @see TreeGrid#scrollToIndex(int)
+     */
+    public void scrollToIndex(int... indexes) {
+        if (indexes.length == 0) {
+            throw new IllegalArgumentException(
+                    "At least one index should be provided.");
+        }
+        int pageSize = getPageSize();
+        int firstRootIndex = indexes[0] - indexes[0] % pageSize;
+        getDataCommunicator().setRequestedRange(firstRootIndex, pageSize);
+        String joinedIndexes = Arrays.stream(indexes).mapToObj(String::valueOf)
+                .collect(Collectors.joining(","));
+        getUI().ifPresent(ui -> ui.beforeClientResponse(this,
+                ctx -> getElement().executeJs(
+                        "this.scrollToIndex(" + joinedIndexes + ");")));
+    }
+
+    @Override
+    public void scrollToEnd() {
+        getUI().ifPresent(ui -> ui.beforeClientResponse(this,
+                ctx -> getElement().executeJs(
+                        "this.scrollToIndex(...Array(10).fill(Infinity))")));
     }
 }

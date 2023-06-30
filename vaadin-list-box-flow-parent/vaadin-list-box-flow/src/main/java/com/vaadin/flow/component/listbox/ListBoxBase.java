@@ -29,6 +29,7 @@ import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentUtil;
 import com.vaadin.flow.component.DetachEvent;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.HasSize;
 import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.ItemLabelGenerator;
@@ -66,13 +67,13 @@ import com.vaadin.flow.shared.Registration;
  * @author Vaadin Ltd
  */
 @Tag("vaadin-list-box")
-@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.2.0-alpha2")
 @JsModule("@vaadin/polymer-legacy-adapter/style-modules.js")
-@NpmPackage(value = "@vaadin/list-box", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/list-box", version = "24.2.0-alpha2")
 @JsModule("@vaadin/list-box/src/vaadin-list-box.js")
 public abstract class ListBoxBase<C extends ListBoxBase<C, ITEM, VALUE>, ITEM, VALUE>
         extends AbstractSinglePropertyField<C, VALUE>
-        implements HasItemComponents<ITEM>, HasSize,
+        implements HasAriaLabel, HasItemComponents<ITEM>, HasSize,
         HasListDataView<ITEM, ListBoxListDataView<ITEM>>,
         HasDataView<ITEM, Void, ListBoxDataView<ITEM>>, HasStyle, HasTooltip {
 
@@ -97,7 +98,17 @@ public abstract class ListBoxBase<C extends ListBoxBase<C, ITEM, VALUE>, ITEM, V
                 presentationToModel, modelToPresentation);
     }
 
-    private void setDataProvider(DataProvider<ITEM, ?> dataProvider) {
+    /**
+     * Sets a generic data provider for the ListBox to use.
+     * <p>
+     * Use this method when none of the {@code setItems} methods are applicable,
+     * e.g. when having a data provider with filter that cannot be transformed
+     * to {@code DataProvider<T, Void>}.
+     *
+     * @param dataProvider
+     *            DataProvider instance to use, not <code>null</code>
+     */
+    public void setDataProvider(DataProvider<ITEM, ?> dataProvider) {
         this.dataProvider.set(Objects.requireNonNull(dataProvider));
         DataViewUtils.removeComponentFilterAndSortComparator(this);
         clear();
@@ -138,11 +149,15 @@ public abstract class ListBoxBase<C extends ListBoxBase<C, ITEM, VALUE>, ITEM, V
     }
 
     /**
-     * Gets the data provider.
+     * Gets the data provider used by this ListBox.
      *
-     * @return the data provider, not {@code null}
+     * <p>
+     * To get information and control over the items in the ListBox, use either
+     * {@link #getListDataView()} or {@link #getGenericDataView()} instead.
+     *
+     * @return the data provider used by this ListBox
      */
-    private DataProvider<ITEM, ?> getDataProvider() {
+    public DataProvider<ITEM, ?> getDataProvider() {
         return dataProvider.get();
     }
 

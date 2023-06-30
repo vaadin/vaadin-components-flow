@@ -15,7 +15,10 @@
  */
 package com.vaadin.flow.component.textfield.tests;
 
+import com.vaadin.flow.component.AbstractField;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.shared.HasAllowedCharPattern;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.dom.ThemeList;
@@ -119,5 +122,42 @@ public class PasswordFieldTest {
         assertTrue("PasswordField should support char pattern",
                 HasAllowedCharPattern.class
                         .isAssignableFrom(new PasswordField().getClass()));
+    }
+
+    @Test
+    public void implementHasAriaLabel() {
+        PasswordField field = new PasswordField();
+        Assert.assertTrue(field instanceof HasAriaLabel);
+    }
+
+    @Test
+    public void setAriaLabel() {
+        PasswordField field = new PasswordField();
+
+        field.setAriaLabel("aria-label");
+        Assert.assertTrue(field.getAriaLabel().isPresent());
+        Assert.assertEquals("aria-label", field.getAriaLabel().get());
+
+        field.setAriaLabel(null);
+        Assert.assertTrue(field.getAriaLabel().isEmpty());
+    }
+
+    @Test
+    public void setAriaLabelledBy() {
+        PasswordField field = new PasswordField();
+
+        field.setAriaLabelledBy("aria-labelledby");
+        Assert.assertTrue(field.getAriaLabelledBy().isPresent());
+        Assert.assertEquals("aria-labelledby", field.getAriaLabelledBy().get());
+
+        field.setAriaLabelledBy(null);
+        Assert.assertTrue(field.getAriaLabelledBy().isEmpty());
+    }
+
+    @Test
+    public void implementsInputField() {
+        PasswordField field = new PasswordField();
+        Assert.assertTrue(
+                field instanceof InputField<AbstractField.ComponentValueChangeEvent<PasswordField, String>, String>);
     }
 }

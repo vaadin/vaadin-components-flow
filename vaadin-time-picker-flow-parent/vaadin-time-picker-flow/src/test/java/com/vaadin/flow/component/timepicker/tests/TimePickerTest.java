@@ -22,7 +22,11 @@ import static org.junit.Assert.assertTrue;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import com.vaadin.flow.component.AbstractField;
+import com.vaadin.flow.component.HasAriaLabel;
+import com.vaadin.flow.component.shared.InputField;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -278,6 +282,61 @@ public class TimePickerTest {
     public void setTextAsPrefix_throws() {
         TimePicker picker = new TimePicker();
         picker.setPrefixComponent(new Text("Prefix"));
+    }
+
+    @Test
+    public void implementHasAriaLabel() {
+        Assert.assertTrue(
+                "Time picker should support aria-label and aria-labelledby",
+                HasAriaLabel.class.isAssignableFrom(TimePicker.class));
+    }
+
+    @Test
+    public void setAriaLabel() {
+        TimePicker timePicker = new TimePicker();
+
+        timePicker.setAriaLabel("aria-label");
+        Assert.assertTrue(timePicker.getAriaLabel().isPresent());
+        Assert.assertEquals("aria-label", timePicker.getAriaLabel().get());
+
+        timePicker.setAriaLabel(null);
+        Assert.assertTrue(timePicker.getAriaLabel().isEmpty());
+    }
+
+    @Test
+    public void setAriaLabelledBy() {
+        TimePicker timePicker = new TimePicker();
+
+        timePicker.setAriaLabelledBy("aria-labelledby");
+        Assert.assertTrue(timePicker.getAriaLabelledBy().isPresent());
+        Assert.assertEquals("aria-labelledby",
+                timePicker.getAriaLabelledBy().get());
+
+        timePicker.setAriaLabelledBy(null);
+        Assert.assertTrue(timePicker.getAriaLabelledBy().isEmpty());
+    }
+
+    @Test
+    public void unregisterInvalidChangeListenerOnEvent() {
+        var timePicker = new TimePicker();
+
+        var listenerInvokedCount = new AtomicInteger(0);
+        timePicker.addInvalidChangeListener(e -> {
+            listenerInvokedCount.incrementAndGet();
+            e.unregisterListener();
+        });
+
+        timePicker.setInvalid(true);
+        timePicker.setInvalid(false);
+
+        Assert.assertEquals(1, listenerInvokedCount.get());
+    }
+
+    @Test
+    public void implementsInputField() {
+        TimePicker field = new TimePicker();
+        Assert.assertTrue(
+                field instanceof InputField<AbstractField.ComponentValueChangeEvent<TimePicker, LocalTime>, LocalTime>);
     }
 
     @Tag("div")

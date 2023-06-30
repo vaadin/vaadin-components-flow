@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.vaadin</groupId>
         <artifactId>vaadin-spreadsheet-flow-parent</artifactId>
-        <version>24.1-SNAPSHOT</version>
+        <version>24.2-SNAPSHOT</version>
     </parent>
     <artifactId>vaadin-spreadsheet-flow</artifactId>
     <packaging>jar</packaging>
@@ -61,7 +61,7 @@
         <dependency>
             <groupId>com.vaadin</groupId>
             <artifactId>license-checker</artifactId>
-            <version>1.12.0</version>
+            <version>1.12.3</version>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
@@ -79,11 +79,19 @@
                     <groupId>org.apache.poi</groupId>
                     <artifactId>poi-ooxml-lite</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.github.javaparser</groupId>
+                    <artifactId>javaparser-core</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml-full</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.javaparser</groupId>
+            <artifactId>javaparser-core</artifactId>
         </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>

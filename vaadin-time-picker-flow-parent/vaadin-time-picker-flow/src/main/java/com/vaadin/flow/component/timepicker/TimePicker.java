@@ -20,17 +20,17 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
+import com.vaadin.flow.component.AbstractField;
 import com.vaadin.flow.component.AbstractSinglePropertyField;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
 import com.vaadin.flow.component.Focusable;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.HasHelper;
-import com.vaadin.flow.component.HasLabel;
-import com.vaadin.flow.component.HasSize;
-import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.HasValue;
 import com.vaadin.flow.component.Synchronize;
 import com.vaadin.flow.component.Tag;
@@ -45,8 +45,8 @@ import com.vaadin.flow.component.shared.HasClientValidation;
 import com.vaadin.flow.component.shared.HasOverlayClassName;
 import com.vaadin.flow.component.shared.HasPrefix;
 import com.vaadin.flow.component.shared.HasThemeVariant;
-import com.vaadin.flow.component.shared.HasTooltip;
 import com.vaadin.flow.component.shared.HasValidationProperties;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.component.shared.ValidationUtil;
 import com.vaadin.flow.data.binder.HasValidator;
 import com.vaadin.flow.data.binder.ValidationResult;
@@ -67,18 +67,18 @@ import com.vaadin.flow.shared.Registration;
  * @author Vaadin Ltd
  */
 @Tag("vaadin-time-picker")
-@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.2.0-alpha2")
 @JsModule("@vaadin/polymer-legacy-adapter/style-modules.js")
-@NpmPackage(value = "@vaadin/time-picker", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/time-picker", version = "24.2.0-alpha2")
 @JsModule("@vaadin/time-picker/src/vaadin-time-picker.js")
 @JsModule("./vaadin-time-picker/timepickerConnector.js")
 public class TimePicker
         extends AbstractSinglePropertyField<TimePicker, LocalTime>
-        implements Focusable<TimePicker>, HasAllowedCharPattern, HasAutoOpen,
-        HasClearButton, HasClientValidation, HasHelper, HasLabel, HasPrefix,
-        HasOverlayClassName, HasSize, HasStyle, HasTooltip,
-        HasThemeVariant<TimePickerVariant>, HasValidationProperties,
-        HasValidator<LocalTime> {
+        implements Focusable<TimePicker>, HasAllowedCharPattern, HasAriaLabel,
+        HasAutoOpen, HasClearButton, HasClientValidation, HasHelper,
+        InputField<AbstractField.ComponentValueChangeEvent<TimePicker, LocalTime>, LocalTime>,
+        HasPrefix, HasOverlayClassName, HasThemeVariant<TimePickerVariant>,
+        HasValidationProperties, HasValidator<LocalTime> {
 
     private static final SerializableFunction<String, LocalTime> PARSER = valueFromClient -> {
         return valueFromClient == null || valueFromClient.isEmpty() ? null
@@ -95,6 +95,8 @@ public class TimePicker
     private LocalTime min;
     private boolean required;
     private StateTree.ExecutionRegistration pendingLocaleUpdate;
+
+    private boolean manualValidationEnabled = false;
 
     /**
      * Default constructor.
@@ -140,6 +142,9 @@ public class TimePicker
         addValueChangeListener(e -> validate());
 
         addClientValidatedEventListener(event -> validate());
+
+        getElement().addPropertyChangeListener("invalid", event -> fireEvent(
+                new InvalidChangeEvent(this, event.isUserOriginated())));
     }
 
     /**
@@ -253,11 +258,19 @@ public class TimePicker
 
         super.setValue(value);
 
+        // Clear the input element from possible bad input.
         if (Objects.equals(oldValue, getEmptyValue())
                 && Objects.equals(value, getEmptyValue())
                 && isInputValuePresent()) {
-            // Clear the input element from possible bad input.
-            getElement().executeJs("this.inputElement.value = ''");
+            // The check for value presence guarantees that a non-empty value
+            // won't get cleared when setValue(null) and setValue(...) are
+            // subsequently called within one round-trip.
+            // Flow only sends the final component value to the client
+            // when you update the value multiple times during a round-trip
+            // and the final value is sent in place of the first one, so
+            // `executeJs` can end up invoked after a non-empty value is set.
+            getElement()
+                    .executeJs("if (!this.value) this._inputElementValue = ''");
             getElement().setProperty("_hasInputValue", false);
             fireEvent(new ClientValidatedEvent(this, false));
         }
@@ -270,6 +283,27 @@ public class TimePicker
      */
     public String getLabel() {
         return getElement().getProperty("label");
+    }
+
+    @Override
+    public void setAriaLabel(String ariaLabel) {
+        getElement().setProperty("accessibleName", ariaLabel);
+    }
+
+    @Override
+    public Optional<String> getAriaLabel() {
+        return Optional.ofNullable(getElement().getProperty("accessibleName"));
+    }
+
+    @Override
+    public void setAriaLabelledBy(String labelledBy) {
+        getElement().setProperty("accessibleNameRef", labelledBy);
+    }
+
+    @Override
+    public Optional<String> getAriaLabelledBy() {
+        return Optional
+                .ofNullable(getElement().getProperty("accessibleNameRef"));
     }
 
     @Override
@@ -458,9 +492,12 @@ public class TimePicker
      */
     public Registration addInvalidChangeListener(
             ComponentEventListener<InvalidChangeEvent> listener) {
-        return getElement().addPropertyChangeListener("invalid",
-                event -> listener.onComponentEvent(new InvalidChangeEvent(this,
-                        event.isUserOriginated())));
+        return addListener(InvalidChangeEvent.class, listener);
+    }
+
+    @Override
+    public void setManualValidation(boolean enabled) {
+        this.manualValidationEnabled = enabled;
     }
 
     /**
@@ -469,7 +506,9 @@ public class TimePicker
      * constraints using browser development tools.
      */
     protected void validate() {
-        setInvalid(isInvalid(getValue()));
+        if (!this.manualValidationEnabled) {
+            setInvalid(isInvalid(getValue()));
+        }
     }
 
     @Override

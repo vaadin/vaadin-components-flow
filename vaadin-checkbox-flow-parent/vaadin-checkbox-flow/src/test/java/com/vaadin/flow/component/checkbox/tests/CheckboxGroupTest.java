@@ -26,6 +26,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.vaadin.flow.component.AbstractField;
+import com.vaadin.flow.component.HasAriaLabel;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.data.renderer.TextRenderer;
 import org.hamcrest.collection.IsEmptyCollection;
 import org.junit.Assert;
@@ -613,6 +616,43 @@ public class CheckboxGroupTest {
                 ((Checkbox) components.get(0)).getLabel());
         Assert.assertEquals(secondLabel,
                 ((Checkbox) components.get(1)).getLabel());
+    }
+
+    @Test
+    public void implementHasAriaLabel() {
+        Assert.assertTrue(
+                HasAriaLabel.class.isAssignableFrom(CheckboxGroup.class));
+    }
+
+    @Test
+    public void setAriaLabel() {
+        CheckboxGroup<String> group = new CheckboxGroup<>();
+        group.setAriaLabel("aria-label");
+
+        Assert.assertTrue(group.getAriaLabel().isPresent());
+        Assert.assertEquals("aria-label", group.getAriaLabel().get());
+
+        group.setAriaLabel(null);
+        Assert.assertTrue(group.getAriaLabel().isEmpty());
+    }
+
+    @Test
+    public void setAriaLabelledBy() {
+        CheckboxGroup<String> group = new CheckboxGroup<>();
+        group.setAriaLabelledBy("aria-labelledby");
+
+        Assert.assertTrue(group.getAriaLabelledBy().isPresent());
+        Assert.assertEquals("aria-labelledby", group.getAriaLabelledBy().get());
+
+        group.setAriaLabelledBy(null);
+        Assert.assertTrue(group.getAriaLabelledBy().isEmpty());
+    }
+
+    @Test
+    public void implementsInputField() {
+        CheckboxGroup<String> field = new CheckboxGroup<String>();
+        Assert.assertTrue(
+                field instanceof InputField<AbstractField.ComponentValueChangeEvent<CheckboxGroup<String>, Set<String>>, Set<String>>);
     }
 
     /**

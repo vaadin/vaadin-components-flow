@@ -26,14 +26,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.vaadin.flow.component.AbstractField;
 import com.vaadin.flow.component.AbstractSinglePropertyField;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentUtil;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.HasHelper;
-import com.vaadin.flow.component.HasLabel;
-import com.vaadin.flow.component.HasSize;
-import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.ItemLabelGenerator;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.UI;
@@ -44,8 +43,8 @@ import com.vaadin.flow.component.dependency.NpmPackage;
 import com.vaadin.flow.component.shared.ClientValidationUtil;
 import com.vaadin.flow.component.shared.HasClientValidation;
 import com.vaadin.flow.component.shared.HasThemeVariant;
-import com.vaadin.flow.component.shared.HasTooltip;
 import com.vaadin.flow.component.shared.HasValidationProperties;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.component.shared.ValidationUtil;
 import com.vaadin.flow.data.binder.HasItemComponents;
 import com.vaadin.flow.data.binder.HasValidator;
@@ -84,15 +83,17 @@ import elemental.json.JsonArray;
  * @author Vaadin Ltd
  */
 @Tag("vaadin-checkbox-group")
-@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.2.0-alpha2")
 @JsModule("@vaadin/polymer-legacy-adapter/style-modules.js")
-@NpmPackage(value = "@vaadin/checkbox-group", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/checkbox-group", version = "24.2.0-alpha2")
 @JsModule("@vaadin/checkbox-group/src/vaadin-checkbox-group.js")
 public class CheckboxGroup<T>
-        extends AbstractSinglePropertyField<CheckboxGroup<T>, Set<T>> implements
-        HasClientValidation, HasDataView<T, Void, CheckboxGroupDataView<T>>,
-        HasHelper, HasItemComponents<T>, HasLabel, HasSize, HasStyle,
-        HasListDataView<T, CheckboxGroupListDataView<T>>, HasTooltip,
+        extends AbstractSinglePropertyField<CheckboxGroup<T>, Set<T>>
+        implements HasAriaLabel, HasClientValidation,
+        HasDataView<T, Void, CheckboxGroupDataView<T>>, HasHelper,
+        HasItemComponents<T>,
+        InputField<AbstractField.ComponentValueChangeEvent<CheckboxGroup<T>, Set<T>>, Set<T>>,
+        HasListDataView<T, CheckboxGroupListDataView<T>>,
         HasThemeVariant<CheckboxGroupVariant>, HasValidationProperties,
         HasValidator<Set<T>>, MultiSelect<CheckboxGroup<T>, T> {
 
@@ -118,6 +119,8 @@ public class CheckboxGroup<T>
     private volatile int lastFetchedDataSize = -1;
 
     private SerializableConsumer<UI> sizeRequest;
+
+    private boolean manualValidationEnabled = false;
 
     /**
      * Creates an empty checkbox group
@@ -320,7 +323,17 @@ public class CheckboxGroup<T>
         }
     }
 
-    private void setDataProvider(DataProvider<T, ?> dataProvider) {
+    /**
+     * Sets a generic data provider for the CheckboxGroup to use.
+     * <p>
+     * Use this method when none of the {@code setItems} methods are applicable,
+     * e.g. when having a data provider with filter that cannot be transformed
+     * to {@code DataProvider<T, Void>}.
+     *
+     * @param dataProvider
+     *            DataProvider instance to use, not <code>null</code>
+     */
+    public void setDataProvider(DataProvider<T, ?> dataProvider) {
         this.dataProvider.set(dataProvider);
         DataViewUtils.removeComponentFilterAndSortComparator(this);
         reset();
@@ -388,11 +401,16 @@ public class CheckboxGroup<T>
     }
 
     /**
-     * Gets the data provider.
+     * Gets the data provider used by this CheckboxGroup.
      *
-     * @return the data provider, not {@code null}
+     * <p>
+     * To get information and control over the items in the CheckboxGroup, use
+     * either {@link #getListDataView()} or {@link #getGenericDataView()}
+     * instead.
+     *
+     * @return the data provider used by this CheckboxGroup
      */
-    private DataProvider<T, ?> getDataProvider() {
+    public DataProvider<T, ?> getDataProvider() {
         // dataProvider reference won't have been initialized before
         // calling from CheckboxGroup constructor
         return Optional.ofNullable(dataProvider).map(AtomicReference::get)
@@ -495,6 +513,27 @@ public class CheckboxGroup<T>
      */
     public String getLabel() {
         return getElement().getProperty("label");
+    }
+
+    @Override
+    public void setAriaLabel(String ariaLabel) {
+        getElement().setProperty("accessibleName", ariaLabel);
+    }
+
+    @Override
+    public Optional<String> getAriaLabel() {
+        return Optional.ofNullable(getElement().getProperty("accessibleName"));
+    }
+
+    @Override
+    public void setAriaLabelledBy(String labelledBy) {
+        getElement().setProperty("accessibleNameRef", labelledBy);
+    }
+
+    @Override
+    public Optional<String> getAriaLabelledBy() {
+        return Optional
+                .ofNullable(getElement().getProperty("accessibleNameRef"));
     }
 
     /**
@@ -752,13 +791,20 @@ public class CheckboxGroup<T>
         keyMapper.setIdentifierGetter(identifierProvider);
     }
 
-    protected void validate() {
-        boolean isRequired = isRequiredIndicatorVisible();
-        boolean isInvalid = ValidationUtil
-                .checkRequired(isRequired, getValue(), getEmptyValue())
-                .isError();
+    @Override
+    public void setManualValidation(boolean enabled) {
+        this.manualValidationEnabled = enabled;
+    }
 
-        setInvalid(isInvalid);
+    protected void validate() {
+        if (!this.manualValidationEnabled) {
+            boolean isRequired = isRequiredIndicatorVisible();
+            boolean isInvalid = ValidationUtil
+                    .checkRequired(isRequired, getValue(), getEmptyValue())
+                    .isError();
+
+            setInvalid(isInvalid);
+        }
     }
 
     @Override

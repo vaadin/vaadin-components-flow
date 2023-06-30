@@ -15,6 +15,7 @@
  */
 package com.vaadin.flow.component.combobox;
 
+import com.vaadin.flow.component.AbstractField;
 import com.vaadin.flow.component.AbstractSinglePropertyField;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.ClientCallable;
@@ -24,14 +25,12 @@ import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.DomEvent;
 import com.vaadin.flow.component.EventData;
 import com.vaadin.flow.component.Focusable;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.shared.ClientValidationUtil;
 import com.vaadin.flow.component.shared.HasAllowedCharPattern;
 import com.vaadin.flow.component.shared.HasOverlayClassName;
 import com.vaadin.flow.component.shared.HasClearButton;
 import com.vaadin.flow.component.HasHelper;
-import com.vaadin.flow.component.HasLabel;
-import com.vaadin.flow.component.HasSize;
-import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.HasTheme;
 import com.vaadin.flow.component.ItemLabelGenerator;
 import com.vaadin.flow.component.Synchronize;
@@ -41,8 +40,8 @@ import com.vaadin.flow.component.combobox.dataview.ComboBoxLazyDataView;
 import com.vaadin.flow.component.combobox.dataview.ComboBoxListDataView;
 import com.vaadin.flow.component.shared.HasAutoOpen;
 import com.vaadin.flow.component.shared.HasClientValidation;
-import com.vaadin.flow.component.shared.HasTooltip;
 import com.vaadin.flow.component.shared.HasValidationProperties;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.component.shared.ValidationUtil;
 import com.vaadin.flow.data.binder.HasValidator;
 import com.vaadin.flow.data.binder.ValidationStatusChangeEvent;
@@ -71,7 +70,7 @@ import com.vaadin.flow.shared.Registration;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.stream.Stream;
+import java.util.Optional;
 
 /**
  * Provides base functionality for combo box related components, such as
@@ -86,12 +85,13 @@ import java.util.stream.Stream;
  */
 public abstract class ComboBoxBase<TComponent extends ComboBoxBase<TComponent, TItem, TValue>, TItem, TValue>
         extends AbstractSinglePropertyField<TComponent, TValue>
-        implements Focusable<TComponent>, HasAllowedCharPattern, HasAutoOpen,
-        HasClearButton, HasClientValidation, HasOverlayClassName,
+        implements Focusable<TComponent>, HasAllowedCharPattern, HasAriaLabel,
+        HasAutoOpen, HasClearButton, HasClientValidation, HasOverlayClassName,
         HasDataView<TItem, String, ComboBoxDataView<TItem>>, HasHelper,
-        HasLabel, HasLazyDataView<TItem, String, ComboBoxLazyDataView<TItem>>,
-        HasListDataView<TItem, ComboBoxListDataView<TItem>>, HasSize, HasStyle,
-        HasTheme, HasTooltip, HasValidationProperties, HasValidator<TValue> {
+        InputField<AbstractField.ComponentValueChangeEvent<TComponent, TValue>, TValue>,
+        HasLazyDataView<TItem, String, ComboBoxLazyDataView<TItem>>,
+        HasListDataView<TItem, ComboBoxListDataView<TItem>>, HasTheme,
+        HasValidationProperties, HasValidator<TValue> {
 
     /**
      * Registration for custom value listeners that disallows entering custom
@@ -123,6 +123,8 @@ public abstract class ComboBoxBase<TComponent extends ComboBoxBase<TComponent, T
     private final ComboBoxRenderManager<TItem> renderManager;
     private final ComboBoxDataController<TItem> dataController;
     private int customValueListenersCount;
+
+    private boolean manualValidationEnabled = false;
 
     /**
      * Constructs a new ComboBoxBase instance
@@ -374,6 +376,27 @@ public abstract class ComboBoxBase<TComponent extends ComboBoxBase<TComponent, T
     public void setPlaceholder(String placeholder) {
         getElement().setProperty("placeholder",
                 placeholder == null ? "" : placeholder);
+    }
+
+    @Override
+    public void setAriaLabel(String ariaLabel) {
+        getElement().setProperty("accessibleName", ariaLabel);
+    }
+
+    @Override
+    public Optional<String> getAriaLabel() {
+        return Optional.ofNullable(getElement().getProperty("accessibleName"));
+    }
+
+    @Override
+    public void setAriaLabelledBy(String labelledBy) {
+        getElement().setProperty("accessibleNameRef", labelledBy);
+    }
+
+    @Override
+    public Optional<String> getAriaLabelledBy() {
+        return Optional
+                .ofNullable(getElement().getProperty("accessibleNameRef"));
     }
 
     /**
@@ -956,7 +979,59 @@ public abstract class ComboBoxBase<TComponent extends ComboBoxBase<TComponent, T
     // ****************************************************
 
     /**
+     * Sets a generic data provider for the ComboBox to use.
+     * <p>
+     * ComboBox triggers filtering queries based on the strings users type into
+     * the field. For this reason you need to provide the second parameter, a
+     * function which converts the filter-string typed by the user into
+     * filter-type used by your data provider. If your data provider already
+     * supports String as the filter-type, it can be used without a converter
+     * function via {@link #setItems(DataProvider)}.
+     * <p>
+     * Using this method provides the same result as using a data provider
+     * wrapped with
+     * {@link DataProvider#withConvertedFilter(SerializableFunction)}.
+     * <p>
+     * Changing the combo box's data provider resets its current value to
+     * {@code null}.
+     * <p>
+     * Use this method when none of the {@code setItems} methods are applicable,
+     * e.g. when having a data provider with filter that cannot be transformed
+     * to {@code DataProvider<T, Void>}.
+     */
+    public <C> void setDataProvider(DataProvider<TItem, C> dataProvider,
+            SerializableFunction<String, C> filterConverter) {
+        dataController.setDataProvider(dataProvider, filterConverter);
+    }
+
+    /**
+     * Sets a CallbackDataProvider using the given fetch items callback and a
+     * size callback.
+     * <p>
+     * This method is a shorthand for making a {@link CallbackDataProvider} that
+     * handles a partial {@link com.vaadin.flow.data.provider.Query Query}
+     * object.
+     * <p>
+     * Changing the combo box's data provider resets its current value to
+     * {@code null}.
+     *
+     * @param fetchItems
+     *            a callback for fetching items, not <code>null</code>
+     * @param sizeCallback
+     *            a callback for getting the count of items, not
+     *            <code>null</code>
+     * @see CallbackDataProvider
+     */
+    public void setDataProvider(ComboBox.FetchItemsCallback<TItem> fetchItems,
+            SerializableFunction<String, Integer> sizeCallback) {
+        dataController.setDataProvider(fetchItems, sizeCallback);
+    }
+
+    /**
      * Gets the data provider used by this ComboBox.
+     * <p>
+     * To get information and control over the items in the ComboBox, use either
+     * {@link #getListDataView()} or {@link #getLazyDataView()} instead.
      *
      * @return the data provider used by this ComboBox
      */
@@ -1082,13 +1157,20 @@ public abstract class ComboBoxBase<TComponent extends ComboBoxBase<TComponent, T
                 "window.Vaadin.Flow.comboBoxConnector.initLazy(this)");
     }
 
-    protected void validate() {
-        boolean isRequired = isRequiredIndicatorVisible();
-        boolean isInvalid = ValidationUtil
-                .checkRequired(isRequired, getValue(), getEmptyValue())
-                .isError();
+    @Override
+    public void setManualValidation(boolean enabled) {
+        this.manualValidationEnabled = enabled;
+    }
 
-        setInvalid(isInvalid);
+    protected void validate() {
+        if (!this.manualValidationEnabled) {
+            boolean isRequired = isRequiredIndicatorVisible();
+            boolean isInvalid = ValidationUtil
+                    .checkRequired(isRequired, getValue(), getEmptyValue())
+                    .isError();
+
+            setInvalid(isInvalid);
+        }
     }
 
     @Override

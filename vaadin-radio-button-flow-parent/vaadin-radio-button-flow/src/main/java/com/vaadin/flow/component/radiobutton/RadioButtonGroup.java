@@ -15,22 +15,14 @@
  */
 package com.vaadin.flow.component.radiobutton;
 
-import java.util.Collection;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Stream;
-
+import com.vaadin.flow.component.AbstractField;
 import com.vaadin.flow.component.AbstractSinglePropertyField;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentUtil;
 import com.vaadin.flow.component.DetachEvent;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.HasHelper;
-import com.vaadin.flow.component.HasLabel;
-import com.vaadin.flow.component.HasSize;
-import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.ItemLabelGenerator;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.UI;
@@ -41,8 +33,8 @@ import com.vaadin.flow.component.radiobutton.dataview.RadioButtonGroupListDataVi
 import com.vaadin.flow.component.shared.ClientValidationUtil;
 import com.vaadin.flow.component.shared.HasClientValidation;
 import com.vaadin.flow.component.shared.HasThemeVariant;
-import com.vaadin.flow.component.shared.HasTooltip;
 import com.vaadin.flow.component.shared.HasValidationProperties;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.component.shared.ValidationUtil;
 import com.vaadin.flow.data.binder.HasValidator;
 import com.vaadin.flow.data.binder.ValidationStatusChangeEvent;
@@ -66,6 +58,13 @@ import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializablePredicate;
 import com.vaadin.flow.shared.Registration;
 
+import java.util.Collection;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
+
 /**
  * Radio Button Group allows the user to select exactly one value from a list of
  * related but mutually exclusive options.
@@ -73,16 +72,17 @@ import com.vaadin.flow.shared.Registration;
  * @author Vaadin Ltd.
  */
 @Tag("vaadin-radio-group")
-@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/polymer-legacy-adapter", version = "24.2.0-alpha2")
 @JsModule("@vaadin/polymer-legacy-adapter/style-modules.js")
-@NpmPackage(value = "@vaadin/radio-group", version = "24.0.0-rc1")
+@NpmPackage(value = "@vaadin/radio-group", version = "24.2.0-alpha2")
 @JsModule("@vaadin/radio-group/src/vaadin-radio-group.js")
 public class RadioButtonGroup<T>
         extends AbstractSinglePropertyField<RadioButtonGroup<T>, T>
-        implements HasClientValidation,
-        HasDataView<T, Void, RadioButtonGroupDataView<T>>, HasHelper, HasLabel,
-        HasListDataView<T, RadioButtonGroupListDataView<T>>, HasSize, HasStyle,
-        HasThemeVariant<RadioGroupVariant>, HasTooltip, HasValidationProperties,
+        implements HasAriaLabel, HasClientValidation,
+        HasDataView<T, Void, RadioButtonGroupDataView<T>>, HasHelper,
+        HasListDataView<T, RadioButtonGroupListDataView<T>>,
+        InputField<AbstractField.ComponentValueChangeEvent<RadioButtonGroup<T>, T>, T>,
+        HasThemeVariant<RadioGroupVariant>, HasValidationProperties,
         HasValidator<T>, SingleSelect<RadioButtonGroup<T>, T> {
 
     private final KeyMapper<T> keyMapper = new KeyMapper<>();
@@ -104,6 +104,8 @@ public class RadioButtonGroup<T>
     private volatile int lastFetchedDataSize = -1;
 
     private SerializableConsumer<UI> sizeRequest;
+
+    private boolean manualValidationEnabled = false;
 
     private static <T> T presentationToModel(
             RadioButtonGroup<T> radioButtonGroup, String presentation) {
@@ -306,7 +308,17 @@ public class RadioButtonGroup<T>
         return itemEnabledProvider.test(keyMapper.get(selectedKey));
     }
 
-    private void setDataProvider(DataProvider<T, ?> dataProvider) {
+    /**
+     * Sets a generic data provider for the RadioButtonGroup to use.
+     * <p>
+     * Use this method when none of the {@code setItems} methods are applicable,
+     * e.g. when having a data provider with filter that cannot be transformed
+     * to {@code DataProvider<T, Void>}.
+     *
+     * @param dataProvider
+     *            DataProvider instance to use, not <code>null</code>
+     */
+    public void setDataProvider(DataProvider<T, ?> dataProvider) {
         this.dataProvider.set(dataProvider);
         DataViewUtils.removeComponentFilterAndSortComparator(this);
         reset();
@@ -386,11 +398,16 @@ public class RadioButtonGroup<T>
     }
 
     /**
-     * Gets the data provider.
+     * Gets the data provider used by this RadioButtonGroup.
      *
-     * @return the data provider, not {@code null}
+     * <p>
+     * To get information and control over the items in the RadioButtonGroup,
+     * use either {@link #getListDataView()} or {@link #getGenericDataView()}
+     * instead.
+     *
+     * @return the data provider used by this RadioButtonGroup
      */
-    private DataProvider<T, ?> getDataProvider() {
+    public DataProvider<T, ?> getDataProvider() {
         return Optional.ofNullable(dataProvider).map(AtomicReference::get)
                 .orElse(null);
     }
@@ -507,6 +524,27 @@ public class RadioButtonGroup<T>
      */
     public String getLabel() {
         return getElement().getProperty("label");
+    }
+
+    @Override
+    public void setAriaLabel(String ariaLabel) {
+        getElement().setProperty("accessibleName", ariaLabel);
+    }
+
+    @Override
+    public Optional<String> getAriaLabel() {
+        return Optional.ofNullable(getElement().getProperty("accessibleName"));
+    }
+
+    @Override
+    public void setAriaLabelledBy(String labelledBy) {
+        getElement().setProperty("accessibleNameRef", labelledBy);
+    }
+
+    @Override
+    public Optional<String> getAriaLabelledBy() {
+        return Optional
+                .ofNullable(getElement().getProperty("accessibleNameRef"));
     }
 
     @SuppressWarnings("unchecked")
@@ -681,13 +719,20 @@ public class RadioButtonGroup<T>
         keyMapper.setIdentifierGetter(identifierProvider);
     }
 
-    protected void validate() {
-        boolean isRequired = isRequiredIndicatorVisible();
-        boolean isInvalid = ValidationUtil
-                .checkRequired(isRequired, getValue(), getEmptyValue())
-                .isError();
+    @Override
+    public void setManualValidation(boolean enabled) {
+        this.manualValidationEnabled = enabled;
+    }
 
-        setInvalid(isInvalid);
+    protected void validate() {
+        if (!this.manualValidationEnabled) {
+            boolean isRequired = isRequiredIndicatorVisible();
+            boolean isInvalid = ValidationUtil
+                    .checkRequired(isRequired, getValue(), getEmptyValue())
+                    .isError();
+
+            setInvalid(isInvalid);
+        }
     }
 
     @Override

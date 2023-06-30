@@ -6,6 +6,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class DetailsTest {
 
     private Details details;
@@ -17,11 +19,11 @@ public class DetailsTest {
 
     @Test
     public void initContent() {
-        details.setContent(new Span());
-        details.addContent(new Span());
+        details.add(new Span(), new Span());
         Assert.assertEquals(2, details.getContent().count());
 
-        details.setContent(new Span());
+        details.removeAll();
+        details.add(new Span());
         Assert.assertEquals(1, details.getContent().count());
     }
 
@@ -39,5 +41,19 @@ public class DetailsTest {
     @Test
     public void implementsHasTooltip() {
         Assert.assertTrue(details instanceof HasTooltip);
+    }
+
+    @Test
+    public void unregisterOpenedChangeListenerOnEvent() {
+        var listenerInvokedCount = new AtomicInteger(0);
+        details.addOpenedChangeListener(e -> {
+            listenerInvokedCount.incrementAndGet();
+            e.unregisterListener();
+        });
+
+        details.setOpened(true);
+        details.setOpened(false);
+
+        Assert.assertEquals(1, listenerInvokedCount.get());
     }
 }

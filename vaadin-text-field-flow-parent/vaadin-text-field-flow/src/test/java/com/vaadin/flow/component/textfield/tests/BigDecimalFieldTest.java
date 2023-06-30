@@ -15,7 +15,10 @@
  */
 package com.vaadin.flow.component.textfield.tests;
 
+import com.vaadin.flow.component.AbstractField;
+import com.vaadin.flow.component.HasAriaLabel;
 import com.vaadin.flow.component.shared.HasTooltip;
+import com.vaadin.flow.component.shared.InputField;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.dom.ThemeList;
@@ -123,4 +126,41 @@ public class BigDecimalFieldTest extends TextFieldTest {
                 field.getElement().getProperty("value"));
     }
 
+    @Test
+    public void implementHasAriaLabel() {
+        BigDecimalField field = new BigDecimalField();
+        Assert.assertTrue(field instanceof HasAriaLabel);
+    }
+
+    @Test
+    public void setAriaLabel() {
+        BigDecimalField field = new BigDecimalField();
+
+        field.setAriaLabel("aria-label");
+        Assert.assertTrue(field.getAriaLabel().isPresent());
+        Assert.assertEquals("aria-label", field.getAriaLabel().get());
+
+        field.setAriaLabel(null);
+        Assert.assertTrue(field.getAriaLabel().isEmpty());
+    }
+
+    @Test
+    public void setAriaLabelledBy() {
+        BigDecimalField field = new BigDecimalField();
+
+        field.setAriaLabelledBy("aria-labelledby");
+        Assert.assertTrue(field.getAriaLabelledBy().isPresent());
+        Assert.assertEquals("aria-labelledby", field.getAriaLabelledBy().get());
+
+        field.setAriaLabelledBy(null);
+        Assert.assertTrue(field.getAriaLabelledBy().isEmpty());
+    }
+
+    @Test
+    @Override
+    public void implementsInputField() {
+        BigDecimalField field = new BigDecimalField();
+        Assert.assertTrue(
+                field instanceof InputField<AbstractField.ComponentValueChangeEvent<BigDecimalField, BigDecimal>, BigDecimal>);
+    }
 }
