@@ -27,8 +27,23 @@ import com.vaadin.flow.component.dependency.NpmPackage;
 import com.vaadin.flow.component.shared.HasPrefix;
 import com.vaadin.flow.component.shared.HasSuffix;
 import com.vaadin.flow.dom.Element;
+import com.vaadin.flow.internal.JsonSerializer;
+import com.vaadin.flow.internal.UrlUtil;
+import com.vaadin.flow.router.QueryParameters;
+import com.vaadin.flow.router.RouteAlias;
 import com.vaadin.flow.router.RouteConfiguration;
-import com.vaadin.flow.router.Router;
+import com.vaadin.flow.router.RouteParameters;
+import com.vaadin.flow.router.internal.ConfigureRoutes;
+import elemental.json.JsonArray;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A menu item for the {@link SideNav} component.
@@ -41,12 +56,14 @@ import com.vaadin.flow.router.Router;
  * @author Vaadin Ltd
  */
 @Tag("vaadin-side-nav-item")
-@NpmPackage(value = "@vaadin/side-nav", version = "24.2.0-alpha2")
+@NpmPackage(value = "@vaadin/side-nav", version = "24.2.0-alpha4")
 @JsModule("@vaadin/side-nav/src/vaadin-side-nav-item.js")
 public class SideNavItem extends SideNavItemContainer
         implements HasPrefix, HasSuffix {
 
     private Element labelElement;
+
+    private QueryParameters queryParameters;
 
     /**
      * Creates a menu item which does not link to any view but only shows the
@@ -88,6 +105,23 @@ public class SideNavItem extends SideNavItemContainer
     }
 
     /**
+     * Creates a new menu item using the given label that links to the given
+     * view.
+     *
+     * @param label
+     *            the label for the item
+     * @param routeParameters
+     *            the route parameters
+     * @param view
+     *            the view to link to
+     */
+    public SideNavItem(String label, Class<? extends Component> view,
+            RouteParameters routeParameters) {
+        setPath(view, routeParameters);
+        setLabel(label);
+    }
+
+    /**
      * Creates a new menu item using the given label and prefix component (like
      * an icon) that links to the given path.
      *
@@ -118,6 +152,26 @@ public class SideNavItem extends SideNavItemContainer
     public SideNavItem(String label, Class<? extends Component> view,
             Component prefixComponent) {
         setPath(view);
+        setLabel(label);
+        setPrefixComponent(prefixComponent);
+    }
+
+    /**
+     * Creates a new menu item using the given label and prefix component (like
+     * an icon) that links to the given view.
+     *
+     * @param label
+     *            the label for the item
+     * @param view
+     *            the view to link to
+     * @param routeParameters
+     *            the route parameters
+     * @param prefixComponent
+     *            the prefixComponent for the item (usually an icon)
+     */
+    public SideNavItem(String label, Class<? extends Component> view,
+            RouteParameters routeParameters, Component prefixComponent) {
+        setPath(view, routeParameters);
         setLabel(label);
         setPrefixComponent(prefixComponent);
     }
@@ -183,16 +237,20 @@ public class SideNavItem extends SideNavItemContainer
         if (path == null) {
             getElement().removeAttribute("path");
         } else {
-            getElement().setAttribute("path", path);
+            getElement().setAttribute("path",
+                    sanitizePath(updateQueryParameters(path)));
         }
     }
 
     /**
-     * Sets the view this item links to.
+     * Retrieves {@link com.vaadin.flow.router.Route} and
+     * {@link com.vaadin.flow.router.RouteAlias} annotations from the specified
+     * view, and then sets the corresponding path and path aliases for this
+     * item.
      * <p>
      * Note: Vaadin Router will be used to determine the URL path of the view
      * and this URL will be then set to this navigation item using
-     * {@link SideNavItem#setPath(String)}
+     * {@link SideNavItem#setPath(String)}.
      *
      * @param view
      *            The view to link to. The view should be annotated with the
@@ -202,13 +260,39 @@ public class SideNavItem extends SideNavItemContainer
      * @see SideNavItem#setPath(String)
      */
     public void setPath(Class<? extends Component> view) {
-        if (view != null) {
-            Router router = ComponentUtil.getRouter(this);
-            String url = RouteConfiguration.forRegistry(router.getRegistry())
-                    .getUrl(view);
-            setPath(url);
-        } else {
+        setPath(view, RouteParameters.empty());
+    }
+
+    /**
+     * Retrieves {@link com.vaadin.flow.router.Route} and
+     * {@link com.vaadin.flow.router.RouteAlias} annotations from the specified
+     * view, and then sets the corresponding path and path aliases for this
+     * item.
+     * <p>
+     * Note: Vaadin Router will be used to determine the URL path of the view
+     * and this URL will be then set to this navigation item using
+     * {@link SideNavItem#setPath(String)}.
+     *
+     * @param view
+     *            The view to link to. The view should be annotated with the
+     *            {@link com.vaadin.flow.router.Route} annotation. Set to null
+     *            to disable navigation for this item.
+     * @param routeParameters
+     *            the route parameters
+     *
+     * @see SideNavItem#setPath(String)
+     * @see SideNavItem#setPathAliases(Set)
+     */
+    public void setPath(Class<? extends Component> view,
+            RouteParameters routeParameters) {
+        if (view == null) {
             setPath((String) null);
+            setPathAliases(Collections.emptySet());
+        } else {
+            RouteConfiguration routeConfiguration = RouteConfiguration
+                    .forRegistry(ComponentUtil.getRouter(this).getRegistry());
+            setPath(routeConfiguration.getUrl(view, routeParameters));
+            setPathAliases(getPathAliasesFromView(view, routeParameters));
         }
     }
 
@@ -219,6 +303,108 @@ public class SideNavItem extends SideNavItemContainer
      */
     public String getPath() {
         return getElement().getAttribute("path");
+    }
+
+    /**
+     * Sets the {@link QueryParameters} of this item.
+     * <p>
+     * The query string will be generated from
+     * {@link QueryParameters#getQueryString()} and will be appended to the
+     * {@code path} attribute of this item.
+     *
+     * @param queryParameters
+     *            the query parameters object, or {@code null} to remove
+     *            existing query parameters
+     */
+    public void setQueryParameters(QueryParameters queryParameters) {
+        this.queryParameters = queryParameters;
+        // Apply new query parameters to the path
+        setPath(getPath());
+    }
+
+    /**
+     * Gets the path aliases for this item.
+     *
+     * @return the path aliases for this item, empty if none
+     */
+    public Set<String> getPathAliases() {
+        JsonArray pathAliases = (JsonArray) getElement()
+                .getPropertyRaw("pathAliases");
+        if (pathAliases == null) {
+            return Collections.emptySet();
+        }
+        return new HashSet<>(
+                JsonSerializer.toObjects(String.class, pathAliases));
+    }
+
+    /**
+     * Sets the specified path aliases to this item. The aliases act as
+     * secondary paths when determining the active state of the item.
+     * <p>
+     * Note that it is allowed to pass {@code null} as value to clear the
+     * selection.
+     *
+     * @param pathAliases
+     *            the path aliases to set to this item
+     */
+    public void setPathAliases(Set<String> pathAliases) {
+        if (pathAliases == null || pathAliases.isEmpty()) {
+            getElement().removeProperty("pathAliases");
+        } else {
+            JsonArray aliasesAsJson = JsonSerializer.toJson(pathAliases.stream()
+                    .map(alias -> Objects.requireNonNull(alias,
+                            "Alias to set cannot be null"))
+                    .map(this::updateQueryParameters).map(this::sanitizePath)
+                    .collect(Collectors.toSet()));
+            getElement().setPropertyJson("pathAliases", aliasesAsJson);
+        }
+    }
+
+    private Set<String> getPathAliasesFromView(Class<? extends Component> view,
+            RouteParameters routeParameters) {
+        RouteAlias[] routeAliases = view.getAnnotationsByType(RouteAlias.class);
+        return Arrays.stream(routeAliases).map(RouteAlias::value).map(
+                alias -> updateAliasWithRouteParameters(alias, routeParameters))
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+    }
+
+    private String updateAliasWithRouteParameters(String alias,
+            RouteParameters routeParameters) {
+        if (!alias.contains(":")) {
+            return alias;
+        }
+        ConfigureRoutes configuredAliases = new ConfigureRoutes();
+        configuredAliases.setRoute(alias, getClass());
+        return configuredAliases.getTargetUrl(getClass(),
+                getRouteParametersForAlias(alias, routeParameters));
+    }
+
+    private RouteParameters getRouteParametersForAlias(String alias,
+            RouteParameters routeParameters) {
+        Map<String, String> parametersMapForAlias = routeParameters
+                .getParameterNames().stream()
+                .filter(paramName -> alias.contains(":" + paramName))
+                .collect(Collectors.toMap(Function.identity(),
+                        paramName -> routeParameters.get(paramName).get()));
+        return new RouteParameters(parametersMapForAlias);
+    }
+
+    private String updateQueryParameters(String path) {
+        int startOfQuery = path.indexOf('?');
+        if (startOfQuery != -1) {
+            path = path.substring(0, startOfQuery);
+        }
+        if (queryParameters != null) {
+            path += '?' + queryParameters.getQueryString();
+        }
+        return path;
+    }
+
+    private String sanitizePath(String path) {
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+        return UrlUtil.encodeURI(path);
     }
 
     /**
