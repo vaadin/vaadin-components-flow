@@ -21,7 +21,7 @@ public class PopupButtonFixture implements SpreadsheetFixture {
     @Override
     public void loadFixture(final Spreadsheet spreadsheet) {
         spreadsheet.addSelectionChangeListener(event -> {
-            if (event.getAllSelectedCells().getCellCount() != 1) {
+            if (event.getAllSelectedCells().size() != 1) {
                 return;
             }
             List<String> values = new ArrayList<>(VALUES);
