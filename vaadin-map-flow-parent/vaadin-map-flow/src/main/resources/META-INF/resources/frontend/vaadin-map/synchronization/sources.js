@@ -12,6 +12,7 @@ import ImageWMS from 'ol/source/ImageWMS';
 import OSM, { ATTRIBUTION as OSM_ATTRIBUTION } from 'ol/source/OSM';
 import TileWMS from 'ol/source/TileWMS';
 import VectorSource from 'ol/source/Vector';
+import ClusterSource from 'ol/source/Cluster';
 import XYZ from 'ol/source/XYZ';
 import { createOptions, synchronizeCollection } from './util.js';
 
@@ -123,6 +124,23 @@ export function synchronizeVectorSource(target, source, context) {
   }
   synchronizeSource(target, source, context);
   synchronizeCollection(target.getFeaturesCollection(), source.features, context);
+
+  return target;
+}
+
+export function synchronizeClusterSource(target, source, context) {
+  if (!target) {
+    target = new ClusterSource(
+      createOptions({
+        ...source,
+        source: context.lookup.get(source.source),
+      })
+    );
+  }
+  synchronizeSource(target, source, context);
+  target.setSource(context.lookup.get(source.source));
+  target.setDistance(source.distance);
+  target.setMinDistance(source.minDistance);
 
   return target;
 }

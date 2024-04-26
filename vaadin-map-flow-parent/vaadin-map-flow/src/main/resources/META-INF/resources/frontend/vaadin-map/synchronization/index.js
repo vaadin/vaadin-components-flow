@@ -15,6 +15,7 @@ import Text from 'ol/style/Text';
 import View from 'ol/View';
 import { synchronizeImageLayer, synchronizeTileLayer, synchronizeVectorLayer } from './layers.js';
 import {
+  synchronizeClusterSource,
   synchronizeImageWMSSource,
   synchronizeOSMSource,
   synchronizeTileWMSSource,
@@ -114,6 +115,7 @@ const synchronizerLookup = {
   'ol/layer/Tile': synchronizeTileLayer,
   'ol/layer/Vector': synchronizeVectorLayer,
   // Sources
+  'ol/source/Cluster': synchronizeClusterSource,
   'ol/source/ImageWMS': synchronizeImageWMSSource,
   'ol/source/OSM': synchronizeOSMSource,
   'ol/source/TileWMS': synchronizeTileWMSSource,

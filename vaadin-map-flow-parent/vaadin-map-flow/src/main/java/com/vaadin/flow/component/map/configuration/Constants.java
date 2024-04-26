@@ -22,6 +22,7 @@ public class Constants {
     public static final String OL_SOURCE_XYZ = "ol/source/XYZ";
     public static final String OL_SOURCE_OSM = "ol/source/OSM";
     public static final String OL_SOURCE_VECTOR = "ol/source/Vector";
+    public static final String OL_SOURCE_CLUSTER = "ol/source/Cluster";
     public static final String OL_SOURCE_TILE_WMS = "ol/source/TileWMS";
     public static final String OL_SOURCE_IMAGE_WMS = "ol/source/ImageWMS";
     // Geometry
