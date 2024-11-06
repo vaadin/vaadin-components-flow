@@ -40,7 +40,6 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.combobox.dataview.ComboBoxDataView;
 import com.vaadin.flow.component.combobox.dataview.ComboBoxLazyDataView;
 import com.vaadin.flow.component.combobox.dataview.ComboBoxListDataView;
-import com.vaadin.flow.component.shared.ClientValidationUtil;
 import com.vaadin.flow.component.shared.HasAllowedCharPattern;
 import com.vaadin.flow.component.shared.HasAutoOpen;
 import com.vaadin.flow.component.shared.HasClearButton;
@@ -169,6 +168,8 @@ public abstract class ComboBoxBase<TComponent extends ComboBoxBase<TComponent, T
             SerializableBiFunction<TComponent, TValue, TValueProperty> modelToPresentation) {
         super(valuePropertyName, defaultValue, valuePropertyType,
                 presentationToModel, modelToPresentation);
+
+        getElement().setProperty("manualValidation", true);
 
         // Extracted as implementation to fix serialization issue:
         // https://github.com/vaadin/flow-components/issues/4420
@@ -570,8 +571,6 @@ public abstract class ComboBoxBase<TComponent extends ComboBoxBase<TComponent, T
         super.onAttach(attachEvent);
         initConnector();
         dataController.onAttach();
-
-        ClientValidationUtil.preventWebComponentFromModifyingInvalidState(this);
     }
 
     @Override

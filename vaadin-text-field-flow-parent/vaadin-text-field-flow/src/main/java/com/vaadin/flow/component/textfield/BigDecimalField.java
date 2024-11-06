@@ -24,14 +24,12 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 
-import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Synchronize;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.dependency.NpmPackage;
 import com.vaadin.flow.component.dependency.Uses;
-import com.vaadin.flow.component.shared.ClientValidationUtil;
 import com.vaadin.flow.component.shared.HasThemeVariant;
 import com.vaadin.flow.component.shared.ValidationUtil;
 import com.vaadin.flow.component.shared.internal.ValidationController;
@@ -157,6 +155,8 @@ public class BigDecimalField extends TextFieldBase<BigDecimalField, BigDecimal>
 
         setLocale(Optional.ofNullable(UI.getCurrent()).map(UI::getLocale)
                 .orElse(Locale.ROOT));
+
+        getElement().setProperty("manualValidation", true);
 
         // workaround for https://github.com/vaadin/flow/issues/3496
         setInvalid(false);
@@ -452,12 +452,6 @@ public class BigDecimalField extends TextFieldBase<BigDecimalField, BigDecimal>
         String prop = getElement().getProperty("_decimalSeparator");
         return prop == null || prop.isEmpty() ? '.'
                 : getElement().getProperty("_decimalSeparator").charAt(0);
-    }
-
-    @Override
-    protected void onAttach(AttachEvent attachEvent) {
-        super.onAttach(attachEvent);
-        ClientValidationUtil.preventWebComponentFromModifyingInvalidState(this);
     }
 
     /**
