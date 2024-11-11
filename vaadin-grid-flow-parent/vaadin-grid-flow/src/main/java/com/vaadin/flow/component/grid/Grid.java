@@ -502,7 +502,6 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
                         generator.generateData(item, jsonObject);
                     }
                 };
-
                 columnDataGeneratorRegistration = grid
                         .addDataGenerator(conditionalDataGenerator);
             }
@@ -514,7 +513,6 @@ public class Grid<T> extends Component implements HasStyle, HasSize,
             super.setVisible(visible);
             if (resetDataCommunicator) {
                 getGrid().getDataCommunicator().reset();
-
             }
         }
 
